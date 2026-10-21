@@ -3,6 +3,14 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Home screen (launcher) app ka naam jaanne ke liye, taki guard use kabhi na roke -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="false"
         android:icon="@android:drawable/ic_lock_lock"

@@ -15,6 +15,7 @@ object Lock {
     const val WAIT_MS = 60 * 60 * 1000L      // 1 ghanta intezaar
     const val OPEN_MS = 10 * 60 * 1000L      // phir 10 minute khula
     const val GRACE_MS = 90 * 1000L          // setup ke waqt 90 sec ki chhoot
+    const val TEST_MS = 15 * 60 * 1000L      // install/update ke baad 15 min test mode
 
     sealed class State {
         object Locked : State()
@@ -53,18 +54,20 @@ object Lock {
     }
 
     /** Sirf setup adhoora ho tab use hota hai (MainActivity decide karta hai). */
-    fun startGrace(c: Context) {
+    fun startGrace(c: Context, ms: Long = GRACE_MS) {
         prefs(c).edit()
-            .putLong("grace", SystemClock.elapsedRealtime() + GRACE_MS)
+            .putLong("grace", SystemClock.elapsedRealtime() + ms)
             .putInt("graceBoot", bootCount(c))
             .apply()
     }
 
-    private fun inGrace(c: Context): Boolean {
+    fun graceLeftMs(c: Context): Long {
         val p = prefs(c)
-        if (p.getInt("graceBoot", -1) != bootCount(c)) return false
-        return SystemClock.elapsedRealtime() < p.getLong("grace", 0L)
+        if (p.getInt("graceBoot", -1) != bootCount(c)) return 0L
+        return (p.getLong("grace", 0L) - SystemClock.elapsedRealtime()).coerceAtLeast(0L)
     }
+
+    private fun inGrace(c: Context): Boolean = graceLeftMs(c) > 0
 
     /** Guard ko rukna chahiye ya nahi. */
     fun isOpen(c: Context): Boolean = state(c) is State.Open || inGrace(c)

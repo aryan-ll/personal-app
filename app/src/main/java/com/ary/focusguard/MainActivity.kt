@@ -32,6 +32,7 @@ class MainActivity : Activity() {
     private lateinit var requestBtn: Button
     private lateinit var cancelBtn: Button
     private lateinit var removeBtn: Button
+    private lateinit var logText: TextView
 
     private val handler = Handler(Looper.getMainLooper())
     private val tick = object : Runnable {
@@ -46,6 +47,26 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        try {
+            buildUi()
+        } catch (e: Throwable) {
+            showError(e)
+        }
+    }
+
+    /** Crash ki jagah error screen pe dikhao, taki screenshot bhej sako. */
+    private fun showError(e: Throwable) {
+        handler.removeCallbacks(tick)
+        setContentView(ScrollView(this).apply {
+            addView(TextView(this@MainActivity).apply {
+                setPadding(40, 40, 40, 40)
+                textSize = 12f
+                text = "Error (iska screenshot bhejo):\n\n" + android.util.Log.getStackTraceString(e)
+            })
+        })
+    }
+
+    private fun buildUi() {
         val pad = (16 * resources.displayMetrics.density).toInt()
         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(pad, pad, pad, pad) }
 
@@ -81,6 +102,9 @@ class MainActivity : Activity() {
             }
             refresh()
         }
+
+        text("Guard log (kya roka)", 18f, true)
+        logText = text("", 12f)
 
         setContentView(ScrollView(this).apply { addView(col) })
     }
@@ -144,6 +168,15 @@ class MainActivity : Activity() {
     }
 
     private fun refresh() {
+        if (!::status.isInitialized) return
+        try {
+            refreshUnsafe()
+        } catch (e: Throwable) {
+            showError(e)
+        }
+    }
+
+    private fun refreshUnsafe() {
         val dns = when (dnsOk) { true -> "✅ chal raha"; false -> "❌ nahi laga"; null -> "… check nahi hua (internet?)" }
         val admin = if (adminOn()) "✅ on" else "❌ off"
         val guard = if (guardOn()) "✅ on" else "❌ off"
@@ -173,6 +206,11 @@ class MainActivity : Activity() {
                 removeBtn.visibility = if (adminOn()) View.VISIBLE else View.GONE
             }
         }
+
+        val test = Lock.graceLeftMs(this)
+        if (test > 0) lockText.text = "🧪 TEST mode: ${Lock.format(test)} (guard sirf log karega, rokega nahi)\n" + lockText.text
+
+        logText.text = GuardService.readLog(this).ifBlank { "(abhi kuch nahi)" }
     }
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
