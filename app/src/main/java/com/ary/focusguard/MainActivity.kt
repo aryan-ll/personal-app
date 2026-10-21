@@ -188,7 +188,7 @@ class MainActivity : Activity() {
 
         when (val s = Lock.state(this)) {
             is Lock.State.Locked -> {
-                lockText.text = "🔒 Locked. Settings/uninstall/Reels band."
+                lockText.text = "🔒 Locked. Settings/uninstall band."
                 requestBtn.visibility = View.VISIBLE
                 cancelBtn.visibility = View.GONE
                 removeBtn.visibility = View.GONE

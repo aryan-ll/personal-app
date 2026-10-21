@@ -15,8 +15,7 @@ import java.util.Locale
 
 /**
  * Guard:
- *  1. Instagram me Reels (screen pe dikh rahe) toh wapas bhejta hai.
- *  2. Settings / installer me ye screens khule toh Home pe bhejta hai:
+ *  Settings / installer me ye screens khule toh Home pe bhejta hai:
  *     - Focus Guard ka App info / uninstall / Device admin / Accessibility page
  *     - Private DNS hostname wala dialog
  *
@@ -30,9 +29,6 @@ class GuardService : AccessibilityService() {
     private var lastToast = 0L
     private var lastLogMsg = ""
     private var launchers: Set<String> = emptySet()
-
-    private val instagram = "com.instagram.android"
-    private val reelsIdHints = listOf("clips_viewer", "clips_video", "reel_viewer")
 
     private fun protectedWords() = listOf(
         getString(R.string.app_name),
@@ -78,27 +74,16 @@ class GuardService : AccessibilityService() {
         // Event aur screen dono ek hi app ke hone chahiye, warna purani screen pe galat action ho jata hai.
         if (pkg != evPkg || pkg == packageName || pkg in launchers) return
 
-        val reason: String
-        val action: Int
-        when {
-            pkg == instagram -> {
-                reason = findReels(root)?.let { "Reels ($it)" } ?: return
-                action = GLOBAL_ACTION_BACK
-            }
-            isSystemSettings(pkg) -> {
-                reason = protectedHit(root)?.let { "$pkg: \"$it\"" } ?: return
-                action = GLOBAL_ACTION_HOME
-            }
-            else -> return
-        }
+        if (!isSystemSettings(pkg)) return
+        val reason = protectedHit(root)?.let { "$pkg: \"$it\"" } ?: return
 
         if (Lock.isOpen(this)) {
             logOnce("TEST/khula, nahi roka: $reason")
             return
         }
-        performGlobalAction(action)
+        performGlobalAction(GLOBAL_ACTION_HOME)
         logOnce("Roka: $reason")
-        toast(if (pkg == instagram) "Reels band hai. Wapas kaam pe." else "Locked. Focus Guard me 1 ghante ki request dalo.")
+        toast("Locked. Focus Guard me 1 ghante ki request dalo.")
     }
 
     private fun isSystemSettings(pkg: String): Boolean =
@@ -110,23 +95,6 @@ class GuardService : AccessibilityService() {
         protectedWords().firstOrNull { w ->
             root.findAccessibilityNodeInfosByText(w).any { it.isVisibleToUser }
         }
-
-    /** Reels viewer jo screen pe dikh raha ho (chhupa hua preload nahi). */
-    private fun findReels(root: AccessibilityNodeInfo): String? {
-        val queue = ArrayDeque<AccessibilityNodeInfo>()
-        queue.add(root)
-        var seen = 0
-        while (queue.isNotEmpty() && seen < 800) {
-            val node = queue.removeFirst()
-            seen++
-            val id = node.viewIdResourceName
-            if (id != null && node.isVisibleToUser && reelsIdHints.any { id.contains(it) }) {
-                return id.substringAfter(":id/")
-            }
-            for (i in 0 until node.childCount) node.getChild(i)?.let { queue.add(it) }
-        }
-        return null
-    }
 
     private fun logOnce(msg: String) {
         if (msg == lastLogMsg) return

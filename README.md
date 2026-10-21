@@ -3,7 +3,7 @@
 Personal Android app: adult content se door rehne ke liye.
 
 - **Private DNS (Cloudflare Family)** adult sites block karta hai.
-- **Guard (Accessibility)** Instagram Reels band rakhta hai, aur Private DNS, App info/uninstall, Device admin, Accessibility screens ko lock rakhta hai.
+- **Guard (Accessibility)** Private DNS, App info/uninstall, Device admin, Accessibility screens ko lock rakhta hai.
 - **Device Admin** seedha uninstall rokta hai.
 - **Unlock request:** 1 ghanta wait, phir 10 minute ke liye sab khulta hai. Phone restart = request cancel.
 
@@ -19,4 +19,3 @@ Har push pe GitHub Actions APK banata hai → repo ke **Releases** me `focus-gua
 ## Dhyan rahe
 - Lock ke time Network/Accessibility settings page bhi band rahenge (Wi-Fi quick settings tile se chalega).
 - Ye speed-breaker hai, deewar nahi: Safe Mode / PC (ADB) se hat sakta hai.
-- Instagram app update me Reels ke view ids badle toh Reels block kaam karna band kar sakta hai; tab `GuardService.kt` me `reelsIdHints` update karna.
