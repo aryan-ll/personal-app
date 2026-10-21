@@ -5,7 +5,10 @@ Personal Android app: adult content se door rehne ke liye.
 - **Private DNS (Cloudflare Family)** adult sites block karta hai.
 - **Guard (Accessibility)** Private DNS, App info/uninstall, Device admin, Accessibility screens ko lock rakhta hai.
 - **Device Admin** seedha uninstall rokta hai.
-- **Unlock request:** 1 ghanta wait, phir 10 minute ke liye sab khulta hai. Phone restart = request cancel.
+- **Unlock request:** note padhna padega (10 sec), phir 1 ghanta wait, phir 10 minute ke liye sab khulta hai. Phone restart = request cancel.
+- **Raat ka strict mode:** 11 PM se 6 AM tak unlock request nahi.
+- **VPN loophole band:** VPN settings aur VPN apps ka permission dialog lock (VPN Private DNS ko bypass karta hai).
+- **Streak** (kitne din clean), **🆘 SOS** (2 min saans + apna note), **note** ("Shree ji dekh rahi hai !💎", tap karke badlo).
 
 ## APK kaise milega
 Har push pe GitHub Actions APK banata hai → repo ke **Releases** me `focus-guard.apk`.

@@ -18,6 +18,7 @@ import java.util.Locale
  *  Settings / installer me ye screens khule toh Home pe bhejta hai:
  *     - Focus Guard ka App info / uninstall / Device admin / Accessibility page
  *     - Private DNS hostname wala dialog
+ *     - VPN settings aur VPN apps ka permission dialog (VPN = DNS bypass)
  *
  * Test mode: app install/update ke baad guard pehli baar chalta hai toh 15 minute
  * sirf LOG karta hai, rokta nahi. Taki koi bug ho toh phone phase nahi.
@@ -33,8 +34,15 @@ class GuardService : AccessibilityService() {
     private fun protectedWords() = listOf(
         getString(R.string.app_name),
         "provider hostname",
-        "cloudflare-dns"
+        "cloudflare-dns",
+        // VPN Private DNS ko bypass karta hai, isliye VPN settings bhi band
+        "Add VPN",
+        "Always-on VPN",
+        "Block connections without VPN"
     )
+
+    /** Kisi bhi VPN app ka "Connection request" (permission) dialog. */
+    private val vpnDialogPkg = "com.android.vpndialogs"
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -74,8 +82,11 @@ class GuardService : AccessibilityService() {
         // Event aur screen dono ek hi app ke hone chahiye, warna purani screen pe galat action ho jata hai.
         if (pkg != evPkg || pkg == packageName || pkg in launchers) return
 
-        if (!isSystemSettings(pkg)) return
-        val reason = protectedHit(root)?.let { "$pkg: \"$it\"" } ?: return
+        val reason = when {
+            pkg == vpnDialogPkg -> "VPN permission dialog"
+            isSystemSettings(pkg) -> protectedHit(root)?.let { "$pkg: \"$it\"" } ?: return
+            else -> return
+        }
 
         if (Lock.isOpen(this)) {
             logOnce("TEST/khula, nahi roka: $reason")

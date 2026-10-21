@@ -28,12 +28,24 @@ object Lock {
     private fun bootCount(c: Context): Int =
         Settings.Global.getInt(c.contentResolver, Settings.Global.BOOT_COUNT, 0)
 
-    fun requestUnlock(c: Context) {
-        if (prefs(c).getLong("req", -1L) >= 0 && state(c) !is State.Locked) return // pehle se chal raha hai
+    /** Raat ka strict mode: 11 PM se 6 AM tak unlock request nahi. */
+    const val NIGHT_START = 23
+    const val NIGHT_END = 6
+
+    fun isNight(): Boolean {
+        val h = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        return h >= NIGHT_START || h < NIGHT_END
+    }
+
+    /** @return false agar raat hai (request nahi dali). */
+    fun requestUnlock(c: Context): Boolean {
+        if (isNight()) return false
+        if (prefs(c).getLong("req", -1L) >= 0 && state(c) !is State.Locked) return true // pehle se chal raha hai
         prefs(c).edit()
             .putLong("req", SystemClock.elapsedRealtime())
             .putInt("reqBoot", bootCount(c))
             .apply()
+        return true
     }
 
     fun cancel(c: Context) {
