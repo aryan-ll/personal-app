@@ -88,7 +88,7 @@ class GuardService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
         val evPkg = event.packageName?.toString() ?: return
-        if (evPkg == packageName || evPkg in launchers) return // apna app aur home screen kabhi nahi
+        if (evPkg == packageName) return // apna app kabhi nahi
 
         if (evPkg == instagram) { handleInstagram(event); return }
 
@@ -125,7 +125,8 @@ class GuardService : AccessibilityService() {
     }
 
     private fun checkWindow(pkg: String, root: AccessibilityNodeInfo) {
-        if (pkg == packageName || pkg in launchers) return
+        if (pkg == packageName) return
+        if (pkg in launchers) { checkLauncher(root); return }
         when {
             pkg == vpnDialogPkg -> blockSettings("VPN permission dialog")
             isSystemSettings(pkg) -> protectedHit(root)?.let { blockSettings("$pkg: \"$it\"") }
@@ -142,9 +143,27 @@ class GuardService : AccessibilityService() {
         toast("Locked. Focus Guard me 1 ghante ki request dalo.")
     }
 
+    /** Settings, installer, aur Realme ke Phone Manager / App management. */
     private fun isSystemSettings(pkg: String): Boolean =
         pkg.contains("settings") || pkg.contains("packageinstaller") ||
-            pkg.contains("securitycenter") || pkg.contains("permissioncontroller")
+            pkg.contains("securitycenter") || pkg.contains("permissioncontroller") ||
+            pkg.contains("phonemanager") || pkg.contains("safecenter") || pkg.contains("appmanager")
+
+    /**
+     * Home screen pe icon long-press → "Uninstall" ya "App info".
+     * Focus Guard aur ye button dono dikhe toh menu band (BACK).
+     */
+    private fun checkLauncher(root: AccessibilityNodeInfo) {
+        val me = root.findAccessibilityNodeInfosByText(getString(R.string.app_name)).any { it.isVisibleToUser }
+        if (!me) return
+        val hit = listOf("Uninstall", "App info", "Remove").firstOrNull { w ->
+            root.findAccessibilityNodeInfosByText(w).any { it.isVisibleToUser }
+        } ?: return
+        val reason = "Home screen menu: \"$hit\""
+        if (Lock.isOpen(this)) { logOnce("TEST/khula, nahi roka: $reason"); return }
+        performGlobalAction(GLOBAL_ACTION_BACK)
+        logOnce("Roka: $reason")
+    }
 
     private fun protectedHit(root: AccessibilityNodeInfo): String? =
         protectedWords().firstOrNull { w ->

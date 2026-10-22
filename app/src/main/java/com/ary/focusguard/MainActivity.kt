@@ -48,6 +48,7 @@ class MainActivity : Activity() {
     private lateinit var rowAdmin: StatusRow
     private lateinit var rowGuard: StatusRow
     private lateinit var rowVpn: StatusRow
+    private lateinit var rowBattery: StatusRow
     private lateinit var restrictedHint: TextView
     private lateinit var lockTitle: TextView
     private lateinit var lockTimer: TextView
@@ -91,8 +92,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = Ui.BG
-        window.navigationBarColor = Ui.BG
+        Ui.styleWindow(this)
         try {
             buildUi()
         } catch (e: Throwable) {
@@ -122,10 +122,7 @@ class MainActivity : Activity() {
         // ---- Hero: streak + note ----
         val hero = Ui.card(c).apply {
             gravity = Gravity.CENTER_HORIZONTAL
-            background = android.graphics.drawable.GradientDrawable(
-                android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
-                intArrayOf(android.graphics.Color.parseColor("#2A2140"), android.graphics.Color.parseColor("#141821"))
-            ).apply { cornerRadius = Ui.dp(c, 24).toFloat() }
+            background = Ui.glass(c, 28, android.graphics.Color.parseColor("#337B5CFF"))
             val p = Ui.dp(c, 20)
             setPadding(p, p, p, p)
             (layoutParams as LinearLayout.LayoutParams).topMargin = 0
@@ -177,6 +174,7 @@ class MainActivity : Activity() {
         rowDns = StatusRow(prot, "Private DNS", "Set karo") { openDns() }
         rowAdmin = StatusRow(prot, "Device Admin", "On karo") { openAdmin() }
         rowGuard = StatusRow(prot, "Guard", "On karo") { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+        rowBattery = StatusRow(prot, "Battery", "Allow") { openBattery() }
         rowVpn = StatusRow(prot, "VPN", null, null)
         restrictedHint = Ui.text(c, "Guard on na ho toh pehle: Settings → Apps → Focus Guard → ⋮ → \"Allow restricted settings\".", 12f, Ui.MUTED).apply {
             setPadding(0, Ui.dp(c, 8), 0, 0)
@@ -192,7 +190,7 @@ class MainActivity : Activity() {
         lock.addView(lockTitle)
         lock.addView(lockTimer)
         lock.addView(lockSub)
-        requestBtn = Ui.button(c, "Unlock request (1 ghanta wait)", Ui.LINE) { askUnlock() }
+        requestBtn = Ui.button(c, "Unlock request (1 ghanta wait)", Ui.GLASS_BTN) { askUnlock() }
         cancelBtn = Ui.button(c, "Request cancel karo  💪", Ui.GREEN, Ui.BG) {
             Lock.cancel(c); toast("Shabaash. Urge haar gaya."); refresh()
         }
@@ -233,7 +231,7 @@ class MainActivity : Activity() {
         col.addView(logCard)
 
         setContentView(ScrollView(c).apply {
-            setBackgroundColor(Ui.BG)
+            background = Ui.screenBg(c)
             isFillViewport = true
             addView(col)
         })
@@ -256,6 +254,17 @@ class MainActivity : Activity() {
         val list = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: return false
         val me = ComponentName(this, GuardService::class.java)
         return list.split(':').any { ComponentName.unflattenFromString(it) == me }
+    }
+
+    private fun batteryOk(): Boolean =
+        (getSystemService(Context.POWER_SERVICE) as android.os.PowerManager).isIgnoringBatteryOptimizations(packageName)
+
+    /** Realme Guard ko band na kare. Popup khulne ke liye guard 90 sec rukta hai. */
+    @android.annotation.SuppressLint("BatteryLife")
+    private fun openBattery() {
+        if (batteryOk()) { toast("Battery pehle se theek hai."); return }
+        Lock.startGrace(this)
+        startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, android.net.Uri.parse("package:$packageName")))
     }
 
     private fun vpnActive(): Boolean = try {
@@ -382,6 +391,8 @@ class MainActivity : Activity() {
         val guard = guardOn()
         rowAdmin.set(admin, if (admin) "Device Admin: on" else "Device Admin: off")
         rowGuard.set(guard, if (guard) "Guard: on" else "Guard: off")
+        val bat = batteryOk()
+        rowBattery.set(bat, if (bat) "Battery: Guard band nahi hoga" else "Battery: Realme Guard band kar sakta hai")
         val vpn = vpnActive()
         rowVpn.set(!vpn, if (vpn) "VPN chalu hai! DNS bypass ho raha" else "VPN: band")
         restrictedHint.visibility = if (guard) View.GONE else View.VISIBLE

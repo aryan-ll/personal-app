@@ -34,8 +34,7 @@ class GateActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = Ui.BG
-        window.navigationBarColor = Ui.BG
+        Ui.styleWindow(this)
         targetPkg = intent.getStringExtra(EXTRA_PKG)
         build()
     }
@@ -57,7 +56,7 @@ class GateActivity : Activity() {
         val col = LinearLayout(c).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setBackgroundColor(Ui.BG)
+            background = Ui.screenBg(c)
             val p = Ui.dp(c, 24)
             setPadding(p, p * 3, p, p)
         }
@@ -76,7 +75,7 @@ class GateActivity : Activity() {
             col.addView(Ui.button(c, "🆘  Urge aa raha hai", Ui.SOS) {
                 startActivity(Intent(c, SosActivity::class.java)); finish()
             })
-            col.addView(Ui.button(c, "Home pe jao", Ui.CARD) { goHome() })
+            col.addView(Ui.button(c, "Home pe jao", Ui.GLASS_BTN) { goHome() })
             setContentView(col)
             return
         }
@@ -102,7 +101,7 @@ class GateActivity : Activity() {
             setTextColor(Ui.TEXT)
             setHintTextColor(Ui.MUTED)
             hint = "Jawab"
-            background = Ui.rounded(c, Ui.BG, 12, Ui.LINE)
+            background = Ui.rounded(c, Ui.GLASS_BTN, 14, Ui.LINE)
             val p = Ui.dp(c, 12)
             setPadding(p, p, p, p)
             imeOptions = EditorInfo.IME_ACTION_DONE
@@ -120,7 +119,7 @@ class GateActivity : Activity() {
         box.addView(Ui.button(c, "Check", Ui.BLUE) { check() })
         col.addView(box)
 
-        col.addView(Ui.button(c, "Rehne do, Home pe jao", Ui.CARD) { goHome() })
+        col.addView(Ui.button(c, "Rehne do, Home pe jao", Ui.GLASS_BTN) { goHome() })
 
         setContentView(col)
         newQuestion()

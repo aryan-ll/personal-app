@@ -23,13 +23,12 @@ class SosActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = Ui.BG
-        window.navigationBarColor = Ui.BG
+        Ui.styleWindow(this)
 
         val col = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setBackgroundColor(Ui.BG)
+            background = Ui.screenBg(this@SosActivity)
             val p = Ui.dp(this@SosActivity, 24)
             setPadding(p, p * 2, p, p)
         }
@@ -46,7 +45,7 @@ class SosActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(size, size).apply { topMargin = Ui.dp(this@SosActivity, 40) }
         }
         val circle = View(this).apply {
-            background = Ui.rounded(this@SosActivity, Ui.BLUE, 200)
+            background = Ui.rounded(this@SosActivity, android.graphics.Color.parseColor("#806E8BFF"), 200, Ui.LINE)
             alpha = 0.85f
             layoutParams = FrameLayout.LayoutParams(size, size)
         }
@@ -64,7 +63,7 @@ class SosActivity : Activity() {
         }
         col.addView(left)
 
-        val done = Ui.button(this, "Main theek hu 💪", Ui.CARD) { finish() }
+        val done = Ui.button(this, "Main theek hu 💪", Ui.GLASS_BTN) { finish() }
         col.addView(done)
 
         setContentView(col)
