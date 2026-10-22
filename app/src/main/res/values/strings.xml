@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Focus Guard</string>
-    <string name="guard_desc">Private DNS / uninstall / admin screens ko 1 ghante ke lock ke peeche rakhta hai.</string>
+    <string name="guard_desc">Private DNS / uninstall / admin / VPN screens ko lock rakhta hai, browser pe puzzle gate (raat 8–7 band), aur Instagram me sirf Stories, Saved reels aur DMs chalne deta hai.</string>
 </resources>

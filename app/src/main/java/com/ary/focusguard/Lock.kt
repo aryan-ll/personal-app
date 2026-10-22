@@ -25,7 +25,7 @@ object Lock {
 
     private fun prefs(c: Context) = c.getSharedPreferences("lock", Context.MODE_PRIVATE)
 
-    private fun bootCount(c: Context): Int =
+    fun bootCount(c: Context): Int =
         Settings.Global.getInt(c.contentResolver, Settings.Global.BOOT_COUNT, 0)
 
     /** Raat ka strict mode: 11 PM se 6 AM tak unlock request nahi. */

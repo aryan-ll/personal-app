@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sona rang ki dhaal (shield) + diamond -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#F5C451"
+        android:pathData="M54,30 L75,38 L75,54 C75,67 66,76 54,80 C42,76 33,67 33,54 L33,38 Z" />
+    <path
+        android:fillColor="#0E1014"
+        android:pathData="M54,44 L64,54 L54,66 L44,54 Z" />
+</vector>

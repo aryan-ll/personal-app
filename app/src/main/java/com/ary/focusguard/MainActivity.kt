@@ -56,6 +56,7 @@ class MainActivity : Activity() {
     private lateinit var cancelBtn: TextView
     private lateinit var removeBtn: TextView
     private lateinit var logText: TextView
+    private lateinit var browserText: TextView
 
     /** Ek status line: rang wala dot + text + zarurat ho toh button. */
     private inner class StatusRow(parent: LinearLayout, title: String, fixLabel: String?, onFix: (() -> Unit)?) {
@@ -118,32 +119,35 @@ class MainActivity : Activity() {
             setPadding(p, p * 2, p, p * 2)
         }
 
-        // ---- Header ----
-        col.addView(Ui.text(c, "FOCUS GUARD", 13f, Ui.MUTED, true).apply { letterSpacing = 0.2f })
-        noteText = Ui.text(c, "", 22f, Ui.GOLD, true).apply {
-            setPadding(0, Ui.dp(c, 6), 0, 0)
+        // ---- Hero: streak + note ----
+        val hero = Ui.card(c).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+            background = android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+                intArrayOf(android.graphics.Color.parseColor("#2A2140"), android.graphics.Color.parseColor("#141821"))
+            ).apply { cornerRadius = Ui.dp(c, 24).toFloat() }
+            val p = Ui.dp(c, 20)
+            setPadding(p, p, p, p)
+            (layoutParams as LinearLayout.LayoutParams).topMargin = 0
+        }
+        hero.addView(Ui.text(c, "🛡  FOCUS GUARD", 12f, Ui.MUTED, true).apply { letterSpacing = 0.2f; gravity = Gravity.CENTER })
+        streakNum = Ui.text(c, "0", 72f, Ui.TEXT, true).apply { gravity = Gravity.CENTER; setPadding(0, Ui.dp(c, 8), 0, 0) }
+        hero.addView(streakNum)
+        hero.addView(Ui.text(c, "din clean 🔥", 16f, Ui.MUTED).apply { gravity = Gravity.CENTER })
+        streakBest = Ui.text(c, "", 13f, Ui.MUTED).apply { gravity = Gravity.CENTER; setPadding(0, Ui.dp(c, 6), 0, 0) }
+        hero.addView(streakBest)
+        noteText = Ui.text(c, "", 20f, Ui.GOLD, true).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, Ui.dp(c, 16), 0, 0)
             setOnClickListener { editNote() }
         }
-        col.addView(noteText)
-        col.addView(Ui.text(c, "✏️ note badalne ke liye tap karo", 12f, Ui.MUTED))
-
-        // ---- Streak ----
-        val streak = Ui.card(c).apply { gravity = Gravity.CENTER_HORIZONTAL }
-        streakNum = Ui.text(c, "0", 64f, Ui.TEXT, true).apply { gravity = Gravity.CENTER }
-        streak.addView(streakNum)
-        streak.addView(Ui.text(c, "din clean", 16f, Ui.MUTED).apply { gravity = Gravity.CENTER })
-        streakBest = Ui.text(c, "", 13f, Ui.MUTED).apply {
-            gravity = Gravity.CENTER
-            setPadding(0, Ui.dp(c, 8), 0, 0)
-        }
-        streak.addView(streakBest)
-        streak.addView(Ui.text(c, "Fisal gaya? Reset karo", 12f, Ui.MUTED).apply {
-            gravity = Gravity.CENTER
-            setPadding(0, Ui.dp(c, 10), 0, 0)
-            paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
-            setOnClickListener { confirmReset() }
-        })
-        col.addView(streak)
+        hero.addView(noteText)
+        val heroLinks = LinearLayout(c).apply { gravity = Gravity.CENTER; setPadding(0, Ui.dp(c, 12), 0, 0) }
+        heroLinks.addView(Ui.text(c, "✏️ Note badlo", 12f, Ui.MUTED).apply { setOnClickListener { editNote() } })
+        heroLinks.addView(Ui.text(c, "   ·   ", 12f, Ui.MUTED))
+        heroLinks.addView(Ui.text(c, "Fisal gaya? Reset", 12f, Ui.MUTED).apply { setOnClickListener { confirmReset() } })
+        hero.addView(heroLinks)
+        col.addView(hero)
 
         // ---- SOS ----
         col.addView(Ui.button(c, "🆘  Urge aa raha hai", Ui.SOS) {
@@ -154,6 +158,18 @@ class MainActivity : Activity() {
             setPadding(v, v, v, v)
             (layoutParams as LinearLayout.LayoutParams).topMargin = Ui.dp(c, 14)
         })
+
+        // ---- Aaj ke niyam ----
+        val rules = Ui.card(c)
+        rules.addView(Ui.text(c, "Aaj ke niyam", 17f, Ui.TEXT, true).apply { setPadding(0, 0, 0, Ui.dp(c, 8)) })
+        rules.addView(Ui.text(c, "🌐  Browser", 15f, Ui.TEXT, true))
+        browserText = Ui.text(c, "", 14f, Ui.MUTED).apply { setPadding(0, Ui.dp(c, 2), 0, Ui.dp(c, 12)) }
+        rules.addView(browserText)
+        rules.addView(Ui.text(c, "📸  Instagram", 15f, Ui.TEXT, true))
+        rules.addView(Ui.text(c, "✓ Stories, Saved reels, DMs\n✗ Feed scroll, Reels tab, Search", 14f, Ui.MUTED).apply {
+            setPadding(0, Ui.dp(c, 2), 0, 0)
+        })
+        col.addView(rules)
 
         // ---- Protection ----
         val prot = Ui.card(c)
@@ -196,12 +212,23 @@ class MainActivity : Activity() {
         val logCard = Ui.card(c)
         val logHead = Ui.text(c, "Guard log ▸", 14f, Ui.MUTED, true)
         logText = Ui.text(c, "", 12f, Ui.MUTED).apply { visibility = View.GONE; setPadding(0, Ui.dp(c, 8), 0, 0) }
+        val copyLog = Ui.text(c, "📋 Log copy karo", 13f, Ui.BLUE, true).apply {
+            visibility = View.GONE
+            setPadding(0, Ui.dp(c, 10), 0, 0)
+            setOnClickListener {
+                val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                cm.setPrimaryClip(ClipData.newPlainText("log", GuardService.readLog(c)))
+                toast("Log copy ho gaya. Chat me paste karo.")
+            }
+        }
         logHead.setOnClickListener {
             val show = logText.visibility != View.VISIBLE
             logText.visibility = if (show) View.VISIBLE else View.GONE
+            copyLog.visibility = logText.visibility
             logHead.text = if (show) "Guard log ▾" else "Guard log ▸"
         }
         logCard.addView(logHead)
+        logCard.addView(copyLog)
         logCard.addView(logText)
         col.addView(logCard)
 
@@ -338,6 +365,13 @@ class MainActivity : Activity() {
         val days = Me.streakDays(this)
         streakNum.text = days.toString()
         streakBest.text = "Best: ${Me.bestDays(this)} din"
+
+        val free = Rules.browserFreeLeftMs(this)
+        browserText.text = when {
+            Rules.isBrowserNight() -> "🌙 Band hai (raat 8 – subah 7)"
+            free > 0 -> "Free: ${Lock.format(free)} baaki"
+            else -> "Kholne pe ${Rules.PUZZLE_COUNT} sawaal. Raat 8 – subah 7 band."
+        }
 
         rowDns.set(dnsOk, when (dnsOk) {
             true -> "Private DNS: chal raha"
