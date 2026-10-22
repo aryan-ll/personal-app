@@ -191,7 +191,8 @@ class GuardService : AccessibilityService() {
                     isSaved(scan, root) -> Ctx.SAVED
                     else -> Ctx.OTHER
                 }
-                if (tab != null && tab.contains("feed") && feedScrolled(scan)) {
+                val story = scan.ids.any { it.startsWith("reel_viewer") } // story khuli hai, feed check mat karo
+                if (!story && tab != null && tab.contains("feed") && feedScrolled(scan)) {
                     label = "Home feed scroll"; act = Act.HOME_TAB
                 } else {
                     label = "ok (${igCtx.name.lowercase()}, tab=${tab ?: "-"})"; act = Act.NONE
@@ -202,15 +203,17 @@ class GuardService : AccessibilityService() {
         val test = Lock.isOpen(this)
         if (label != lastIgLabel) {
             lastIgLabel = label
+            // IDs bhi likho (test me har screen, warna sirf roke hue), taki galat pakda toh theek kar sakein.
+            val hint = scan.ids.filter { id ->
+                listOf("tab", "tray", "viewer", "saved", "collection", "thread", "direct", "search", "explore", "row_feed", "clips", "title", "profile")
+                    .any { id.contains(it) }
+            }.take(12).joinToString(",")
             if (test) {
-                // Test mode me IDs bhi likho, taki screens sahi pakad sakein.
-                val hint = scan.ids.filter { id ->
-                    listOf("tab", "tray", "viewer", "saved", "collection", "thread", "direct", "search", "explore", "row_feed", "clips")
-                        .any { id.contains(it) }
-                }.take(10).joinToString(",")
                 log(this, "IG: $label${if (act != Act.NONE) " [rokta]" else ""} | $hint")
             } else if (act != Act.NONE) {
-                log(this, "Roka IG: $label")
+                log(this, "Roka IG: $label | $hint")
+            } else if (igCtx == Ctx.SAVED || label == "Saved reel") {
+                log(this, "IG: $label")
             }
         }
         if (act == Act.NONE || test) return
