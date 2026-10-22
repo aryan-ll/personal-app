@@ -76,6 +76,8 @@ class GuardService : AccessibilityService() {
         } else {
             log(this, "Guard chalu.")
         }
+        handler.removeCallbacks(poll)
+        handler.post(poll) // turant check, phir har 2 sec
     }
 
     private fun versionCode(): Long = try {
@@ -97,8 +99,33 @@ class GuardService : AccessibilityService() {
 
         val root = rootInActiveWindow ?: return
         val pkg = root.packageName?.toString() ?: return
-        if (pkg != evPkg || pkg == packageName || pkg in launchers) return
+        if (pkg != evPkg) return
+        checkWindow(pkg, root)
+    }
 
+    /**
+     * Har 2 second me khud screen check karo. Realme Guard ko restart kare toh
+     * pehle se khula Settings page bhi pakda jaye (us page pe koi naya event nahi aata).
+     */
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val poll = object : Runnable {
+        override fun run() {
+            try {
+                rootInActiveWindow?.let { root ->
+                    root.packageName?.toString()?.let { pkg -> if (pkg != instagram) checkWindow(pkg, root) }
+                }
+            } catch (_: Exception) {}
+            handler.postDelayed(this, 2000)
+        }
+    }
+
+    override fun onDestroy() {
+        handler.removeCallbacks(poll)
+        super.onDestroy()
+    }
+
+    private fun checkWindow(pkg: String, root: AccessibilityNodeInfo) {
+        if (pkg == packageName || pkg in launchers) return
         when {
             pkg == vpnDialogPkg -> blockSettings("VPN permission dialog")
             isSystemSettings(pkg) -> protectedHit(root)?.let { blockSettings("$pkg: \"$it\"") }
