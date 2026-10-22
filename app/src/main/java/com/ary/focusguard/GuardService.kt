@@ -124,9 +124,17 @@ class GuardService : AccessibilityService() {
         super.onDestroy()
     }
 
+    private var lastPkgLogged = ""
+
     private fun checkWindow(pkg: String, root: AccessibilityNodeInfo) {
         if (pkg == packageName) return
+        // Test mode me har naya app likho, taki chhoota hua page pakad sakein.
+        if (pkg != lastPkgLogged && Lock.graceLeftMs(this) > 0) {
+            lastPkgLogged = pkg
+            log(this, "App: $pkg")
+        }
         if (pkg in launchers) { checkLauncher(root); return }
+        appInfoHit(root)?.let { blockSettings("$pkg: Focus Guard + \"$it\""); return }
         when {
             pkg == vpnDialogPkg -> blockSettings("VPN permission dialog")
             isSystemSettings(pkg) -> protectedHit(root)?.let { blockSettings("$pkg: \"$it\"") }
@@ -148,6 +156,19 @@ class GuardService : AccessibilityService() {
         pkg.contains("settings") || pkg.contains("packageinstaller") ||
             pkg.contains("securitycenter") || pkg.contains("permissioncontroller") ||
             pkg.contains("phonemanager") || pkg.contains("safecenter") || pkg.contains("appmanager")
+
+    /**
+     * Kisi bhi app me (Realme ka App info alag app me khulta hai):
+     * "Focus Guard" + delete/band karne wala button dono dikhe toh band.
+     * Doosre apps ke page pe unka naam hota hai, isliye wo nahi rukte.
+     */
+    private fun appInfoHit(root: AccessibilityNodeInfo): String? {
+        val me = root.findAccessibilityNodeInfosByText(getString(R.string.app_name)).any { it.isVisibleToUser }
+        if (!me) return null
+        return listOf("Uninstall", "Force stop", "Disable and delete", "Deactivate").firstOrNull { w ->
+            root.findAccessibilityNodeInfosByText(w).any { it.isVisibleToUser }
+        }
+    }
 
     /**
      * Home screen pe icon long-press → "Uninstall" ya "App info".
@@ -235,7 +256,12 @@ class GuardService : AccessibilityService() {
                 igCtx = when {
                     isDm(scan) -> Ctx.DM
                     isSaved(scan, root) -> Ctx.SAVED
-                    else -> Ctx.OTHER
+                    // Neeche tab bar = main screen (home/profile/search), yaad mitao
+                    tab != null || "tab_bar" in scan.ids -> Ctx.OTHER
+                    // Kisi ka profile khula: uski reels ka raasta band
+                    scan.ids.any { it.startsWith("row_profile_header") || it.startsWith("profile_header") } -> Ctx.OTHER
+                    // Saved/DM ke andar ki screen (post viewer etc.): yaad rakho kahan se aaye
+                    else -> igCtx
                 }
                 val story = scan.ids.any { it.startsWith("reel_viewer") } // story khuli hai, feed check mat karo
                 if (!story && tab != null && tab.contains("feed") && feedScrolled(scan)) {
