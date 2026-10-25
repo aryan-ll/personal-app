@@ -34,8 +34,8 @@ class GuardService : AccessibilityService() {
     private var lastLogMsg = ""
     private var launchers: Set<String> = emptySet()
 
+    // Sirf naam se nahi rokte (warna Apps list bhi band ho jaati). Naam wale pages appInfoHit dekhta hai.
     private fun protectedWords() = listOf(
-        getString(R.string.app_name),
         "provider hostname",
         "cloudflare-dns",
         "Add VPN",
@@ -125,19 +125,58 @@ class GuardService : AccessibilityService() {
     }
 
     private var lastPkgLogged = ""
+    private var lastTextsLogged = ""
+
+    /**
+     * Screen pe jitna text hai (saari windows ka), chhote letters me.
+     * Realme Settings kabhi content alag window me dikhata hai, isliye sirf
+     * saamne wali window kaafi nahi. Text aur content-description dono padhte hain.
+     */
+    private fun screenTexts(root: AccessibilityNodeInfo): List<String> {
+        val roots = ArrayList<AccessibilityNodeInfo>()
+        roots.add(root)
+        try {
+            windows?.forEach { w -> w.root?.let { r -> if (r.packageName?.toString() != packageName) roots.add(r) } }
+        } catch (_: Exception) {}
+        val out = ArrayList<String>()
+        val queue = ArrayDeque<AccessibilityNodeInfo>()
+        queue.addAll(roots)
+        var seen = 0
+        while (queue.isNotEmpty() && seen < 2500) {
+            val n = queue.removeFirst()
+            seen++
+            n.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { out.add(it) }
+            n.contentDescription?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { out.add(it) }
+            for (i in 0 until n.childCount) n.getChild(i)?.let { queue.add(it) }
+        }
+        return out
+    }
+
+    private fun List<String>.has(word: String): Boolean = any { it.contains(word, ignoreCase = true) }
 
     private fun checkWindow(pkg: String, root: AccessibilityNodeInfo) {
         if (pkg == packageName) return
+        val test = Lock.graceLeftMs(this) > 0
         // Test mode me har naya app likho, taki chhoota hua page pakad sakein.
-        if (pkg != lastPkgLogged && Lock.graceLeftMs(this) > 0) {
+        if (pkg != lastPkgLogged && test) {
             lastPkgLogged = pkg
             log(this, "App: $pkg")
         }
-        if (pkg in launchers) { checkLauncher(root); return }
-        appInfoHit(root)?.let { blockSettings("$pkg: Focus Guard + \"$it\""); return }
+        val needText = pkg in launchers || isSystemSettings(pkg) || pkg == vpnDialogPkg ||
+            ((pkg.startsWith("com.android") || pkg.contains("oplus") || pkg.contains("coloros")) && !isBrowser(pkg))
+        val texts = if (needText) screenTexts(root) else emptyList()
+
+        // Test mode: Settings me Guard ko kya dikh raha hai, wo likho.
+        if (test && isSystemSettings(pkg)) {
+            val sample = texts.distinct().take(12).joinToString(" | ")
+            if (sample != lastTextsLogged) { lastTextsLogged = sample; log(this, "Dikha: $sample") }
+        }
+
+        if (pkg in launchers) { checkLauncher(texts); return }
+        appInfoHit(texts)?.let { blockSettings("$pkg: Focus Guard + \"$it\""); return }
         when {
             pkg == vpnDialogPkg -> blockSettings("VPN permission dialog")
-            isSystemSettings(pkg) -> protectedHit(root)?.let { blockSettings("$pkg: \"$it\"") }
+            isSystemSettings(pkg) -> protectedHit(texts)?.let { blockSettings("$pkg: \"$it\"") }
             isBrowser(pkg) -> handleBrowser(pkg)
         }
     }
@@ -158,38 +197,30 @@ class GuardService : AccessibilityService() {
             pkg.contains("phonemanager") || pkg.contains("safecenter") || pkg.contains("appmanager")
 
     /**
-     * Kisi bhi app me (Realme ka App info alag app me khulta hai):
-     * "Focus Guard" + delete/band karne wala button dono dikhe toh band.
+     * Kisi bhi system app me: "Focus Guard" + delete/band karne wala button dono dikhe toh band.
      * Doosre apps ke page pe unka naam hota hai, isliye wo nahi rukte.
      */
-    private fun appInfoHit(root: AccessibilityNodeInfo): String? {
-        val me = root.findAccessibilityNodeInfosByText(getString(R.string.app_name)).any { it.isVisibleToUser }
-        if (!me) return null
-        return listOf("Uninstall", "Force stop", "Disable and delete", "Deactivate").firstOrNull { w ->
-            root.findAccessibilityNodeInfosByText(w).any { it.isVisibleToUser }
-        }
+    private fun appInfoHit(texts: List<String>): String? {
+        if (!texts.has(getString(R.string.app_name))) return null
+        // App info (Uninstall/Force stop), Device admin (Disable and delete), Accessibility (Use Focus Guard)
+        return listOf("Uninstall", "Force stop", "Disable and delete", "Deactivate", "Use Focus Guard", "Focus Guard shortcut")
+            .firstOrNull { texts.has(it) }
     }
 
     /**
      * Home screen pe icon long-press → "Uninstall" ya "App info".
      * Focus Guard aur ye button dono dikhe toh menu band (BACK).
      */
-    private fun checkLauncher(root: AccessibilityNodeInfo) {
-        val me = root.findAccessibilityNodeInfosByText(getString(R.string.app_name)).any { it.isVisibleToUser }
-        if (!me) return
-        val hit = listOf("Uninstall", "App info", "Remove").firstOrNull { w ->
-            root.findAccessibilityNodeInfosByText(w).any { it.isVisibleToUser }
-        } ?: return
+    private fun checkLauncher(texts: List<String>) {
+        if (!texts.has(getString(R.string.app_name))) return
+        val hit = listOf("Uninstall", "App info", "Remove").firstOrNull { texts.has(it) } ?: return
         val reason = "Home screen menu: \"$hit\""
         if (Lock.isOpen(this)) { logOnce("TEST/khula, nahi roka: $reason"); return }
         performGlobalAction(GLOBAL_ACTION_BACK)
         logOnce("Roka: $reason")
     }
 
-    private fun protectedHit(root: AccessibilityNodeInfo): String? =
-        protectedWords().firstOrNull { w ->
-            root.findAccessibilityNodeInfosByText(w).any { it.isVisibleToUser }
-        }
+    private fun protectedHit(texts: List<String>): String? = protectedWords().firstOrNull { texts.has(it) }
 
     // ================= Browser =================
 
