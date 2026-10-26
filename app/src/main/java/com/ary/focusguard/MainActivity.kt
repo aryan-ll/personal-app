@@ -59,34 +59,43 @@ class MainActivity : Activity() {
     private lateinit var logText: TextView
     private lateinit var browserText: TextView
     private lateinit var diagBtn: TextView
+    private lateinit var statusPill: TextView
+    private lateinit var streakUnit: TextView
 
-    /** Ek status line: rang wala dot + text + zarurat ho toh button. */
+    /** One status line: colored dot + title + value + optional action button. */
     private inner class StatusRow(parent: LinearLayout, title: String, fixLabel: String?, onFix: (() -> Unit)?) {
-        val dot = Ui.text(this@MainActivity, "●", 16f)
-        val label = Ui.text(this@MainActivity, title, 15f)
+        val dot = Ui.text(this@MainActivity, "●", 12f)
+        val name = Ui.text(this@MainActivity, title, 15f, Ui.TEXT, true)
+        val value = Ui.text(this@MainActivity, "", 13f, Ui.MUTED)
         val fix: TextView? = if (fixLabel != null && onFix != null) Ui.text(this@MainActivity, fixLabel, 13f, Ui.BG, true).apply {
-            background = Ui.rounded(this@MainActivity, Ui.GOLD, 10)
-            val p = Ui.dp(this@MainActivity, 8)
-            setPadding(p + p / 2, p / 2 + 2, p + p / 2, p / 2 + 2)
+            background = Ui.rounded(this@MainActivity, Ui.GOLD, 20)
+            val p = Ui.dp(this@MainActivity, 14)
+            setPadding(p, p / 2, p, p / 2)
             setOnClickListener { onFix?.invoke() }
         } else null
 
         init {
-            val row = LinearLayout(this@MainActivity).apply {
+            val c = this@MainActivity
+            val row = LinearLayout(c).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, Ui.dp(this@MainActivity, 6), 0, Ui.dp(this@MainActivity, 6))
+                setPadding(0, Ui.dp(c, 10), 0, Ui.dp(c, 10))
             }
-            label.setPadding(Ui.dp(this@MainActivity, 10), 0, 0, 0)
+            val textCol = LinearLayout(c).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(Ui.dp(c, 12), 0, Ui.dp(c, 8), 0)
+                addView(name)
+                addView(value)
+            }
             row.addView(dot)
-            row.addView(label, LinearLayout.LayoutParams(0, -2, 1f))
+            row.addView(textCol, LinearLayout.LayoutParams(0, -2, 1f))
             fix?.let { row.addView(it) }
             parent.addView(row)
         }
 
         fun set(ok: Boolean?, text: String) {
             dot.setTextColor(when (ok) { true -> Ui.GREEN; false -> Ui.RED; null -> Ui.MUTED })
-            label.text = text
+            value.text = text
             fix?.visibility = if (ok == true) View.GONE else View.VISIBLE
         }
     }
@@ -101,14 +110,22 @@ class MainActivity : Activity() {
         }
     }
 
-    /** Crash ki jagah error screen pe dikhao, taki screenshot bhej sako. */
+    /** Show the error instead of crashing, so it can be reported. */
     private fun showError(e: Throwable) {
         handler.removeCallbacks(tick)
         setContentView(ScrollView(this).apply {
             setBackgroundColor(Ui.BG)
-            addView(Ui.text(this@MainActivity, "Error (iska screenshot bhejo):\n\n" + android.util.Log.getStackTraceString(e), 12f).apply {
+            addView(Ui.text(this@MainActivity, "Something went wrong. Please share this screen:\n\n" + android.util.Log.getStackTraceString(e), 12f).apply {
                 setPadding(40, 40, 40, 40)
             })
+        })
+    }
+
+    /** Small uppercase section label above a card. */
+    private fun section(col: LinearLayout, title: String) {
+        col.addView(Ui.text(this, title.uppercase(), 12f, Ui.MUTED, true).apply {
+            letterSpacing = 0.12f
+            setPadding(Ui.dp(this@MainActivity, 4), Ui.dp(this@MainActivity, 24), 0, 0)
         })
     }
 
@@ -116,89 +133,105 @@ class MainActivity : Activity() {
         val c = this
         val col = LinearLayout(c).apply {
             orientation = LinearLayout.VERTICAL
-            val p = Ui.dp(c, 16)
-            setPadding(p, p * 2, p, p * 2)
+            val p = Ui.dp(c, 20)
+            setPadding(p, p + p / 2, p, p * 2)
         }
 
-        // ---- Hero: streak + note ----
+        // ---- Header ----
+        val header = LinearLayout(c).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        header.addView(Ui.text(c, "Focus Guard", 26f, Ui.TEXT, true), LinearLayout.LayoutParams(0, -2, 1f))
+        statusPill = Ui.text(c, "", 12f, Ui.BG, true).apply {
+            val p = Ui.dp(c, 12)
+            setPadding(p, p / 2, p, p / 2)
+        }
+        header.addView(statusPill)
+        col.addView(header)
+
+        // ---- Streak ----
         val hero = Ui.card(c).apply {
-            gravity = Gravity.CENTER_HORIZONTAL
             background = Ui.glass(c, 28, android.graphics.Color.parseColor("#337B5CFF"))
-            val p = Ui.dp(c, 20)
+            val p = Ui.dp(c, 22)
             setPadding(p, p, p, p)
-            (layoutParams as LinearLayout.LayoutParams).topMargin = 0
+            (layoutParams as LinearLayout.LayoutParams).topMargin = Ui.dp(c, 20)
         }
-        hero.addView(Ui.text(c, "🛡  FOCUS GUARD", 12f, Ui.MUTED, true).apply { letterSpacing = 0.2f; gravity = Gravity.CENTER })
-        streakNum = Ui.text(c, "0", 72f, Ui.TEXT, true).apply { gravity = Gravity.CENTER; setPadding(0, Ui.dp(c, 8), 0, 0) }
-        hero.addView(streakNum)
-        hero.addView(Ui.text(c, "din clean 🔥", 16f, Ui.MUTED).apply { gravity = Gravity.CENTER })
-        streakBest = Ui.text(c, "", 13f, Ui.MUTED).apply { gravity = Gravity.CENTER; setPadding(0, Ui.dp(c, 6), 0, 0) }
+        hero.addView(Ui.text(c, "CURRENT STREAK", 12f, Ui.MUTED, true).apply { letterSpacing = 0.12f })
+        val numRow = LinearLayout(c).apply { gravity = Gravity.BOTTOM }
+        streakNum = Ui.text(c, "0", 64f, Ui.TEXT, true)
+        numRow.addView(streakNum)
+        streakUnit = Ui.text(c, "days", 18f, Ui.MUTED).apply { setPadding(Ui.dp(c, 8), 0, 0, Ui.dp(c, 16)) }
+        numRow.addView(streakUnit)
+        hero.addView(numRow)
+        streakBest = Ui.text(c, "", 13f, Ui.MUTED)
         hero.addView(streakBest)
-        noteText = Ui.text(c, "", 20f, Ui.GOLD, true).apply {
-            gravity = Gravity.CENTER
-            setPadding(0, Ui.dp(c, 16), 0, 0)
-            setOnClickListener { editNote() }
-        }
+        hero.addView(android.view.View(c).apply {
+            setBackgroundColor(Ui.LINE)
+            layoutParams = LinearLayout.LayoutParams(-1, Ui.dp(c, 1)).apply { topMargin = Ui.dp(c, 16); bottomMargin = Ui.dp(c, 14) }
+        })
+        noteText = Ui.text(c, "", 18f, Ui.GOLD, true).apply { setOnClickListener { editNote() } }
         hero.addView(noteText)
-        val heroLinks = LinearLayout(c).apply { gravity = Gravity.CENTER; setPadding(0, Ui.dp(c, 12), 0, 0) }
-        heroLinks.addView(Ui.text(c, "✏️ Note badlo", 12f, Ui.MUTED).apply { setOnClickListener { editNote() } })
-        heroLinks.addView(Ui.text(c, "   ·   ", 12f, Ui.MUTED))
-        heroLinks.addView(Ui.text(c, "Fisal gaya? Reset", 12f, Ui.MUTED).apply { setOnClickListener { confirmReset() } })
+        val heroLinks = LinearLayout(c).apply { setPadding(0, Ui.dp(c, 12), 0, 0) }
+        heroLinks.addView(Ui.text(c, "Edit note", 13f, Ui.BLUE, true).apply { setOnClickListener { editNote() } })
+        heroLinks.addView(Ui.text(c, "     ", 13f))
+        heroLinks.addView(Ui.text(c, "Reset streak", 13f, Ui.MUTED, true).apply { setOnClickListener { confirmReset() } })
         hero.addView(heroLinks)
         col.addView(hero)
 
         // ---- SOS ----
-        col.addView(Ui.button(c, "🆘  Urge aa raha hai", Ui.SOS) {
+        col.addView(Ui.button(c, "I'm feeling an urge", Ui.SOS) {
             startActivity(Intent(c, SosActivity::class.java))
         }.apply {
-            textSize = 18f
-            val v = Ui.dp(c, 20)
+            textSize = 17f
+            val v = Ui.dp(c, 18)
             setPadding(v, v, v, v)
-            (layoutParams as LinearLayout.LayoutParams).topMargin = Ui.dp(c, 14)
+            (layoutParams as LinearLayout.LayoutParams).topMargin = Ui.dp(c, 16)
         })
 
-        // ---- Aaj ke niyam ----
-        val rules = Ui.card(c)
-        rules.addView(Ui.text(c, "Aaj ke niyam", 17f, Ui.TEXT, true).apply { setPadding(0, 0, 0, Ui.dp(c, 8)) })
-        rules.addView(Ui.text(c, "🌐  Browser", 15f, Ui.TEXT, true))
-        browserText = Ui.text(c, "", 14f, Ui.MUTED).apply { setPadding(0, Ui.dp(c, 2), 0, Ui.dp(c, 12)) }
+        // ---- Rules ----
+        section(col, "Today's rules")
+        val rules = Ui.card(c).apply { (layoutParams as LinearLayout.LayoutParams).topMargin = Ui.dp(c, 8) }
+        rules.addView(Ui.text(c, "Browser", 15f, Ui.TEXT, true))
+        browserText = Ui.text(c, "", 13f, Ui.MUTED).apply { setPadding(0, Ui.dp(c, 2), 0, Ui.dp(c, 14)) }
         rules.addView(browserText)
-        rules.addView(Ui.text(c, "📸  Instagram", 15f, Ui.TEXT, true))
-        rules.addView(Ui.text(c, "✓ Stories, Saved reels, DMs\n✗ Feed scroll, Reels tab, Search", 14f, Ui.MUTED).apply {
+        rules.addView(Ui.text(c, "Instagram", 15f, Ui.TEXT, true))
+        rules.addView(Ui.text(c, "Allowed: Stories, Saved reels, DMs\nBlocked: Feed scrolling, Reels tab, Search", 13f, Ui.MUTED).apply {
             setPadding(0, Ui.dp(c, 2), 0, 0)
         })
         col.addView(rules)
 
         // ---- Protection ----
-        val prot = Ui.card(c)
-        prot.addView(Ui.text(c, "Suraksha", 17f, Ui.TEXT, true).apply { setPadding(0, 0, 0, Ui.dp(c, 6)) })
-        rowDns = StatusRow(prot, "Private DNS", "Set karo") { openDns() }
-        rowAdmin = StatusRow(prot, "Device Admin", "On karo") { openAdmin() }
-        rowGuard = StatusRow(prot, "Guard", "On karo") { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+        section(col, "Protection")
+        val prot = Ui.card(c).apply { (layoutParams as LinearLayout.LayoutParams).topMargin = Ui.dp(c, 8) }
+        rowDns = StatusRow(prot, "Private DNS", "Set up") { openDns() }
+        rowAdmin = StatusRow(prot, "Device admin", "Enable") { openAdmin() }
+        rowGuard = StatusRow(prot, "Guard service", "Turn on") { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
         rowBattery = StatusRow(prot, "Battery", "Allow") { openBattery() }
         rowVpn = StatusRow(prot, "VPN", null, null)
-        restrictedHint = Ui.text(c, "Guard on na ho toh pehle: Settings → Apps → Focus Guard → ⋮ → \"Allow restricted settings\".", 12f, Ui.MUTED).apply {
+        restrictedHint = Ui.text(c, "Can't turn on the guard? Open Settings → Apps → Focus Guard → ⋮ → Allow restricted settings, then try again.", 12f, Ui.MUTED).apply {
             setPadding(0, Ui.dp(c, 8), 0, 0)
         }
         prot.addView(restrictedHint)
         col.addView(prot)
 
         // ---- Lock ----
-        val lock = Ui.card(c)
+        section(col, "Lock")
+        val lock = Ui.card(c).apply { (layoutParams as LinearLayout.LayoutParams).topMargin = Ui.dp(c, 8) }
         lockTitle = Ui.text(c, "", 17f, Ui.TEXT, true)
         lockTimer = Ui.text(c, "", 40f, Ui.TEXT, true).apply { setPadding(0, Ui.dp(c, 4), 0, 0) }
-        lockSub = Ui.text(c, "", 13f, Ui.MUTED)
+        lockSub = Ui.text(c, "", 13f, Ui.MUTED).apply { setPadding(0, Ui.dp(c, 4), 0, 0) }
         lock.addView(lockTitle)
         lock.addView(lockTimer)
         lock.addView(lockSub)
-        requestBtn = Ui.button(c, "Unlock request (1 ghanta wait)", Ui.GLASS_BTN) { askUnlock() }
-        cancelBtn = Ui.button(c, "Request cancel karo  💪", Ui.GREEN, Ui.BG) {
-            Lock.cancel(c); toast("Shabaash. Urge haar gaya."); refresh()
+        requestBtn = Ui.button(c, "Request unlock", Ui.GLASS_BTN) { askUnlock() }
+        cancelBtn = Ui.button(c, "Cancel request", Ui.GREEN, Ui.BG) {
+            Lock.cancel(c); toast("Request cancelled. Well done."); refresh()
         }
-        removeBtn = Ui.button(c, "Device Admin hatao", Ui.RED) {
+        removeBtn = Ui.button(c, "Remove device admin", Ui.RED) {
             if (Lock.state(c) is Lock.State.Open) {
                 dpm.removeActiveAdmin(adminComp)
-                toast("Admin hata diya. Ab 10 min me uninstall/update kar sakte ho.")
+                toast("Device admin removed. You can update or uninstall during this window.")
             }
             refresh()
         }
@@ -207,33 +240,33 @@ class MainActivity : Activity() {
         lock.addView(removeBtn)
         col.addView(lock)
 
-        // ---- Log (chhupa hua) ----
-        val logCard = Ui.card(c)
-        val logHead = Ui.text(c, "Guard log ▸", 14f, Ui.MUTED, true)
-        logText = Ui.text(c, "", 12f, Ui.MUTED).apply { visibility = View.GONE; setPadding(0, Ui.dp(c, 8), 0, 0) }
-        val copyLog = Ui.text(c, "📋 Log copy karo", 13f, Ui.BLUE, true).apply {
+        // ---- Diagnostics ----
+        section(col, "Diagnostics")
+        val logCard = Ui.card(c).apply { (layoutParams as LinearLayout.LayoutParams).topMargin = Ui.dp(c, 8) }
+        diagBtn = Ui.text(c, "", 14f, Ui.GOLD, true).apply {
+            setOnClickListener {
+                Lock.startDiagnose(c)
+                GuardService.log(c, "Diagnostics started (15 min). Blocking stays on.")
+                toast("Diagnostics running. Open the screens you want to check.")
+                refresh()
+            }
+        }
+        val logHead = Ui.text(c, "Show activity log", 14f, Ui.BLUE, true).apply { setPadding(0, Ui.dp(c, 14), 0, 0) }
+        logText = Ui.text(c, "", 12f, Ui.MUTED).apply { visibility = View.GONE; setPadding(0, Ui.dp(c, 10), 0, 0) }
+        val copyLog = Ui.text(c, "Copy log", 14f, Ui.BLUE, true).apply {
             visibility = View.GONE
-            setPadding(0, Ui.dp(c, 10), 0, 0)
+            setPadding(0, Ui.dp(c, 12), 0, 0)
             setOnClickListener {
                 val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 cm.setPrimaryClip(ClipData.newPlainText("log", GuardService.readLog(c)))
-                toast("Log copy ho gaya. Chat me paste karo.")
+                toast("Log copied.")
             }
         }
         logHead.setOnClickListener {
             val show = logText.visibility != View.VISIBLE
             logText.visibility = if (show) View.VISIBLE else View.GONE
             copyLog.visibility = logText.visibility
-            logHead.text = if (show) "Guard log ▾" else "Guard log ▸"
-        }
-        diagBtn = Ui.text(c, "", 13f, Ui.GOLD, true).apply {
-            setPadding(0, Ui.dp(c, 10), 0, 0)
-            setOnClickListener {
-                Lock.startDiagnose(c)
-                GuardService.log(c, "Jaanch shuru (15 min). Guard rokta rahega, bas zyada likhega.")
-                toast("Jaanch chalu. Ab wo screens kholo, phir log bhejo.")
-                refresh()
-            }
+            logHead.text = if (show) "Hide activity log" else "Show activity log"
         }
         logCard.addView(diagBtn)
         logCard.addView(logHead)
@@ -273,7 +306,7 @@ class MainActivity : Activity() {
     /** Realme Guard ko band na kare. Popup khulne ke liye guard 90 sec rukta hai. */
     @android.annotation.SuppressLint("BatteryLife")
     private fun openBattery() {
-        if (batteryOk()) { toast("Battery pehle se theek hai."); return }
+        if (batteryOk()) { toast("Battery is already unrestricted."); return }
         Lock.startGrace(this)
         startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, android.net.Uri.parse("package:$packageName")))
     }
@@ -302,48 +335,48 @@ class MainActivity : Activity() {
         val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         cm.setPrimaryClip(ClipData.newPlainText("dns", dnsHost))
         when (dnsOk) {
-            true -> toast("DNS pehle se laga hai.")
-            null -> { toast("Internet on karo, phir try karo."); checkDns() }
+            true -> toast("Private DNS is already active.")
+            null -> { toast("Connect to the internet and try again."); checkDns() }
             false -> {
                 // DNS nahi laga — guard ko 90 sec rok do taki dialog khul sake.
                 Lock.startGrace(this)
-                toast("Copy ho gaya: $dnsHost — Private DNS me paste karo")
+                toast("Copied $dnsHost. Paste it into Private DNS.")
                 startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS))
             }
         }
     }
 
     private fun openAdmin() {
-        if (adminOn()) { toast("Admin pehle se on hai."); return }
+        if (adminOn()) { toast("Device admin is already enabled."); return }
         Lock.startGrace(this) // admin abhi on nahi, toh activation screen khulne do
         startActivity(Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
             putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, adminComp)
-            putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "Isse app seedha uninstall nahi hoga. Hatane ke liye 1 ghanta wait karna padega.")
+            putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "Prevents Focus Guard from being uninstalled directly. Removing it requires a 1-hour unlock.")
         })
     }
 
     /** Unlock se pehle note padhna padega, aur "Haan" 10 sec baad hi dabega. */
     private fun askUnlock() {
         if (Lock.isNight()) {
-            toast("🌙 Raat 11 se subah 6 tak unlock band hai. So jao.")
+            toast("Unlock requests are unavailable from 11 PM to 6 AM.")
             return
         }
         val dialog = AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
             .setTitle(Me.note(this))
-            .setMessage("${Me.streakDays(this)} din ki mehnat hai.\nSach me unlock chahiye? 1 ghanta wait hoga.\n\nUrge hai toh pehle 🆘 dabao.")
-            .setPositiveButton("Haan (10)", null)
-            .setNegativeButton("Nahi, rehne do", null)
+            .setMessage("You have ${Me.streakDays(this)} days of progress.\n\nAn unlock takes 1 hour to start. If this is an urge, try the breathing exercise first.")
+            .setPositiveButton("Request (10)", null)
+            .setNegativeButton("Never mind", null)
             .create()
         dialog.setOnShowListener {
             val yes: Button = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
             yes.isEnabled = false
             val t = object : CountDownTimer(10_000, 1000) {
-                override fun onTick(ms: Long) { yes.text = "Haan (${ms / 1000 + 1})" }
-                override fun onFinish() { yes.text = "Haan"; yes.isEnabled = true }
+                override fun onTick(ms: Long) { yes.text = "Request (${ms / 1000 + 1})" }
+                override fun onFinish() { yes.text = "Request"; yes.isEnabled = true }
             }.start()
             dialog.setOnDismissListener { t.cancel() }
             yes.setOnClickListener {
-                if (!Lock.requestUnlock(this)) toast("🌙 Raat me unlock band hai.")
+                if (!Lock.requestUnlock(this)) toast("Unlock requests are unavailable at night.")
                 dialog.dismiss()
                 refresh()
             }
@@ -354,7 +387,7 @@ class MainActivity : Activity() {
     private fun editNote() {
         val input = EditText(this).apply { setText(Me.note(this@MainActivity)) }
         AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-            .setTitle("Kyun chhodna hai?")
+            .setTitle("Your reason")
             .setView(input)
             .setPositiveButton("Save") { _, _ -> Me.setNote(this, input.text.toString()); refresh() }
             .setNegativeButton("Cancel", null)
@@ -364,9 +397,9 @@ class MainActivity : Activity() {
     private fun confirmReset() {
         AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
             .setTitle("Streak reset?")
-            .setMessage("Koi baat nahi. Girna haar nahi, rukna haar hai. Phir se 0 se shuru.")
+            .setMessage("A slip is not a failure. Your streak restarts from 0; your best is kept.")
             .setPositiveButton("Reset") { _, _ -> Me.resetStreak(this); refresh() }
-            .setNegativeButton("Nahi", null)
+            .setNegativeButton("Cancel", null)
             .show()
     }
 
@@ -384,56 +417,57 @@ class MainActivity : Activity() {
 
         val days = Me.streakDays(this)
         streakNum.text = days.toString()
-        streakBest.text = "Best: ${Me.bestDays(this)} din"
+        streakUnit.text = if (days == 1L) "day" else "days"
+        streakBest.text = "Best: ${Me.bestDays(this)} days"
 
         val free = Rules.browserFreeLeftMs(this)
         browserText.text = when {
-            Rules.isBrowserNight() -> "🌙 Band hai (raat 8 – subah 7)"
-            free > 0 -> "Free: ${Lock.format(free)} baaki"
-            else -> "Kholne pe ${Rules.PUZZLE_COUNT} sawaal. Raat 8 – subah 7 band."
+            Rules.isBrowserNight() -> "Blocked until 7 AM"
+            free > 0 -> "Unlocked · ${Lock.format(free)} left"
+            else -> "Puzzle required (${Rules.PUZZLE_COUNT} questions) · Off from 8 PM to 7 AM"
         }
 
         rowDns.set(dnsOk, when (dnsOk) {
-            true -> "Private DNS: chal raha"
-            false -> "Private DNS: nahi laga"
-            null -> "Private DNS: check nahi hua (internet?)"
+            true -> "Active · adult sites blocked"
+            false -> "Not set"
+            null -> "Can't check (offline?)"
         })
         val admin = adminOn()
         val guard = guardOn()
-        rowAdmin.set(admin, if (admin) "Device Admin: on" else "Device Admin: off")
-        rowGuard.set(guard, if (guard) "Guard: on" else "Guard: off")
+        rowAdmin.set(admin, if (admin) "Enabled" else "Disabled")
+        rowGuard.set(guard, if (guard) "Running" else "Off")
         val bat = batteryOk()
-        rowBattery.set(bat, if (bat) "Battery: Guard band nahi hoga" else "Battery: Realme Guard band kar sakta hai")
+        rowBattery.set(bat, if (bat) "Unrestricted" else "Restricted · the system may stop the guard")
         val vpn = vpnActive()
-        rowVpn.set(!vpn, if (vpn) "VPN chalu hai! DNS bypass ho raha" else "VPN: band")
+        rowVpn.set(!vpn, if (vpn) "Active · DNS filter bypassed" else "Off")
         restrictedHint.visibility = if (guard) View.GONE else View.VISIBLE
 
         val night = Lock.isNight()
         when (val s = Lock.state(this)) {
             is Lock.State.Locked -> {
-                lockTitle.text = "🔒  Locked"
+                lockTitle.text = "Locked"
                 lockTimer.visibility = View.GONE
-                lockSub.text = if (night) "🌙 Raat 11–6: unlock request band hai." else "DNS, uninstall, admin aur VPN settings band hain."
+                lockSub.text = if (night) "Unlock requests are unavailable from 11 PM to 6 AM." else "Uninstall, device admin, DNS and VPN settings are locked."
                 requestBtn.visibility = if (night) View.GONE else View.VISIBLE
                 cancelBtn.visibility = View.GONE
                 removeBtn.visibility = View.GONE
             }
             is Lock.State.Waiting -> {
-                lockTitle.text = "⏳  Unlock me baaki"
+                lockTitle.text = "Unlock pending"
                 lockTimer.visibility = View.VISIBLE
                 lockTimer.text = Lock.format(s.leftMs)
                 lockTimer.setTextColor(Ui.GOLD)
-                lockSub.text = "Urge utar gaya? Cancel daba do."
+                lockSub.text = "Feeling better? Cancel the request."
                 requestBtn.visibility = View.GONE
                 cancelBtn.visibility = View.VISIBLE
                 removeBtn.visibility = View.GONE
             }
             is Lock.State.Open -> {
-                lockTitle.text = "🔓  Khula hai"
+                lockTitle.text = "Unlocked"
                 lockTimer.visibility = View.VISIBLE
                 lockTimer.text = Lock.format(s.leftMs)
                 lockTimer.setTextColor(Ui.RED)
-                lockSub.text = "Iske baad apne aap lock."
+                lockSub.text = "Locks again automatically."
                 requestBtn.visibility = View.GONE
                 cancelBtn.visibility = View.VISIBLE
                 removeBtn.visibility = if (admin) View.VISIBLE else View.GONE
@@ -441,11 +475,15 @@ class MainActivity : Activity() {
         }
 
         val test = Lock.graceLeftMs(this)
-        if (test > 0) lockSub.text = "🧪 TEST mode ${Lock.format(test)}: guard sirf log karega.\n" + lockSub.text
+        if (test > 0) lockSub.text = "Test mode · ${Lock.format(test)} · logging only\n" + lockSub.text
 
         val diag = Lock.diagnoseLeftMs(this)
-        diagBtn.text = if (diag > 0) "🔍 Jaanch chal rahi hai: ${Lock.format(diag)}" else "🔍 Jaanch shuru karo (15 min, Guard rokta rahega)"
-        logText.text = GuardService.readLog(this).ifBlank { "(abhi kuch nahi)" }
+        diagBtn.text = if (diag > 0) "Diagnostics running · ${Lock.format(diag)}" else "Run diagnostics (15 min)"
+        logText.text = GuardService.readLog(this).ifBlank { "No activity yet." }
+
+        val allOk = dnsOk == true && admin && guard && !vpn
+        statusPill.text = if (allOk) "PROTECTED" else "ACTION NEEDED"
+        statusPill.background = Ui.rounded(this, if (allOk) Ui.GREEN else Ui.GOLD, 20)
     }
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_LONG).show()

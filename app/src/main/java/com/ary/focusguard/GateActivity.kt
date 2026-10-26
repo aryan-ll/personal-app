@@ -62,27 +62,26 @@ class GateActivity : Activity() {
         }
 
         if (Rules.isBrowserNight()) {
-            col.addView(Ui.text(c, "🌙", 64f).apply { gravity = Gravity.CENTER })
-            col.addView(Ui.text(c, "Browser band hai", 26f, Ui.TEXT, true).apply {
+                        col.addView(Ui.text(c, "Browser is off for the night", 24f, Ui.TEXT, true).apply {
                 gravity = Gravity.CENTER; setPadding(0, Ui.dp(c, 12), 0, 0)
             })
-            col.addView(Ui.text(c, "Raat 8 se subah 7 tak.\nKal subah milte hain.", 16f, Ui.MUTED).apply {
+            col.addView(Ui.text(c, "Browsing is blocked from 8 PM to 7 AM.\nGet some rest.", 16f, Ui.MUTED).apply {
                 gravity = Gravity.CENTER; setPadding(0, Ui.dp(c, 8), 0, 0)
             })
             col.addView(Ui.text(c, Me.note(c), 20f, Ui.GOLD, true).apply {
                 gravity = Gravity.CENTER; setPadding(0, Ui.dp(c, 32), 0, Ui.dp(c, 16))
             })
-            col.addView(Ui.button(c, "🆘  Urge aa raha hai", Ui.SOS) {
+            col.addView(Ui.button(c, "I'm feeling an urge", Ui.SOS) {
                 startActivity(Intent(c, SosActivity::class.java)); finish()
             })
-            col.addView(Ui.button(c, "Home pe jao", Ui.GLASS_BTN) { goHome() })
+            col.addView(Ui.button(c, "Go to home screen", Ui.GLASS_BTN) { goHome() })
             setContentView(col)
             return
         }
 
         solved = 0
         col.addView(Ui.text(c, Me.note(c), 20f, Ui.GOLD, true).apply { gravity = Gravity.CENTER })
-        col.addView(Ui.text(c, "Browser kholne se pehle ${Rules.PUZZLE_COUNT} sawaal.\nSach me zarurat hai? Toh solve karo.", 15f, Ui.MUTED).apply {
+        col.addView(Ui.text(c, "Solve ${Rules.PUZZLE_COUNT} questions to open the browser\nfor ${Rules.BROWSER_FREE_MS / 60000} minutes.", 15f, Ui.MUTED).apply {
             gravity = Gravity.CENTER; setPadding(0, Ui.dp(c, 10), 0, 0)
         })
 
@@ -100,7 +99,7 @@ class GateActivity : Activity() {
             gravity = Gravity.CENTER
             setTextColor(Ui.TEXT)
             setHintTextColor(Ui.MUTED)
-            hint = "Jawab"
+            hint = "Answer"
             background = Ui.rounded(c, Ui.GLASS_BTN, 14, Ui.LINE)
             val p = Ui.dp(c, 12)
             setPadding(p, p, p, p)
@@ -119,7 +118,7 @@ class GateActivity : Activity() {
         box.addView(Ui.button(c, "Check", Ui.BLUE) { check() })
         col.addView(box)
 
-        col.addView(Ui.button(c, "Rehne do, Home pe jao", Ui.GLASS_BTN) { goHome() })
+        col.addView(Ui.button(c, "Not now", Ui.GLASS_BTN) { goHome() })
 
         setContentView(col)
         newQuestion()
@@ -131,7 +130,7 @@ class GateActivity : Activity() {
         val b = Random.nextInt(3, 10)
         answer = a * b
         question.text = "$a × $b"
-        progress.text = "Sawaal ${solved + 1} / ${Rules.PUZZLE_COUNT}"
+        progress.text = "QUESTION ${solved + 1} OF ${Rules.PUZZLE_COUNT}"
         input.setText("")
     }
 
@@ -141,15 +140,15 @@ class GateActivity : Activity() {
             solved++
             if (solved >= Rules.PUZZLE_COUNT) {
                 Rules.grantBrowser(this)
-                GuardService.log(this, "Puzzle solve: browser 30 min free")
+                GuardService.log(this, "Puzzle solved: browser unlocked for 30 min")
                 openTargetAndFinish()
                 return
             }
             feedback.setTextColor(Ui.GREEN)
-            feedback.text = "Sahi ✓"
+            feedback.text = "Correct"
         } else {
             feedback.setTextColor(Ui.RED)
-            feedback.text = "Galat. Naya sawaal."
+            feedback.text = "Incorrect. Try this one."
         }
         newQuestion()
     }

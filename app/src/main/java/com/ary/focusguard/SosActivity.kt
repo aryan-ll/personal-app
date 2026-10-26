@@ -34,7 +34,7 @@ class SosActivity : Activity() {
         }
 
         col.addView(Ui.text(this, Me.note(this), 26f, Ui.GOLD, true).apply { gravity = Gravity.CENTER })
-        col.addView(Ui.text(this, "Ye urge 10-15 minute me utar jayega. Bas saath me saans lo.", 15f, Ui.MUTED).apply {
+        col.addView(Ui.text(this, "Urges peak and pass within 10–15 minutes.\nBreathe with the circle.", 15f, Ui.MUTED).apply {
             gravity = Gravity.CENTER
             setPadding(0, Ui.dp(this@SosActivity, 12), 0, 0)
         })
@@ -49,7 +49,7 @@ class SosActivity : Activity() {
             alpha = 0.85f
             layoutParams = FrameLayout.LayoutParams(size, size)
         }
-        val phase = Ui.text(this, "Saans andar", 20f, Ui.TEXT, true).apply {
+        val phase = Ui.text(this, "Breathe in", 20f, Ui.TEXT, true).apply {
             gravity = Gravity.CENTER
             layoutParams = FrameLayout.LayoutParams(size, size)
         }
@@ -63,7 +63,7 @@ class SosActivity : Activity() {
         }
         col.addView(left)
 
-        val done = Ui.button(this, "Main theek hu 💪", Ui.GLASS_BTN) { finish() }
+        val done = Ui.button(this, "I'm okay now", Ui.GLASS_BTN) { finish() }
         col.addView(done)
 
         setContentView(col)
@@ -82,7 +82,7 @@ class SosActivity : Activity() {
                 val nowGrowing = v >= last
                 if (nowGrowing != growing) {
                     growing = nowGrowing
-                    phase.text = if (growing) "Saans andar" else "Saans bahar"
+                    phase.text = if (growing) "Breathe in" else "Breathe out"
                 }
                 last = v
             }
@@ -91,10 +91,10 @@ class SosActivity : Activity() {
 
         timer = object : CountDownTimer(totalMs, 1000) {
             override fun onTick(ms: Long) {
-                left.text = "Baaki: ${ms / 60000}:%02d".format((ms / 1000) % 60)
+                left.text = "${ms / 60000}:%02d remaining".format((ms / 1000) % 60)
             }
             override fun onFinish() {
-                left.text = "2 minute ho gaye. Shabaash. Ab uthke paani piyo ya bahar ghoom aao."
+                left.text = "Well done. Get up, drink some water, or step outside."
                 done.background = Ui.rounded(this@SosActivity, Ui.GREEN, 14)
                 done.setTextColor(Ui.BG)
             }

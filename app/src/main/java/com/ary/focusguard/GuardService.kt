@@ -76,9 +76,9 @@ class GuardService : AccessibilityService() {
         if (p.getLong("ver", -1L) != ver) {
             p.edit().putLong("ver", ver).apply()
             Lock.startGrace(this, Lock.TEST_MS)
-            log(this, "Guard chalu. 15 min TEST mode (sirf log, rokega nahi).")
+            log(this, "Guard started. 15 min test mode (log only, nothing blocked).")
         } else {
-            log(this, "Guard chalu.")
+            log(this, "Guard started.")
         }
         handler.removeCallbacks(poll)
         handler.post(poll) // turant check, phir har 2 sec
@@ -93,6 +93,18 @@ class GuardService : AccessibilityService() {
         event ?: return
         val evPkg = event.packageName?.toString() ?: return
         if (evPkg == packageName) return // apna app kabhi nahi
+
+        // Home screen pe kis icon pe long-press hua, ye yaad rakho
+        if (event.eventType == AccessibilityEvent.TYPE_VIEW_LONG_CLICKED) {
+            if (evPkg in launchers) {
+                val t = (event.text.joinToString(" ") + " " + (event.contentDescription ?: "") + " " +
+                    (event.source?.let { (it.text ?: "").toString() + " " + (it.contentDescription ?: "") } ?: "")).trim()
+                lastLongPress = t
+                lastLongPressAt = SystemClock.uptimeMillis()
+                if (Lock.graceLeftMs(this) > 0 || Lock.diagnoseOn(this)) log(this, "Long-press: ${t.ifBlank { "(no label)" }}")
+            }
+            return
+        }
 
         if (evPkg == instagram) { handleInstagram(event); return }
 
@@ -174,7 +186,7 @@ class GuardService : AccessibilityService() {
         // Test mode: Settings me Guard ko kya dikh raha hai, wo likho.
         if (test && isSystemSettings(pkg)) {
             val sample = texts.distinct().take(12).joinToString(" | ")
-            if (sample != lastTextsLogged) { lastTextsLogged = sample; log(this, "Dikha: $sample") }
+            if (sample != lastTextsLogged) { lastTextsLogged = sample; log(this, "Seen: $sample") }
         }
 
         if (pkg in launchers) { checkLauncher(texts); return }
@@ -189,10 +201,10 @@ class GuardService : AccessibilityService() {
     // ================= Settings =================
 
     private fun blockSettings(reason: String) {
-        if (Lock.isOpen(this)) { logOnce("TEST/khula, nahi roka: $reason"); return }
+        if (Lock.isOpen(this)) { logOnce("Test/unlocked, not blocked: $reason"); return }
         performGlobalAction(GLOBAL_ACTION_HOME)
-        logOnce("Roka: $reason")
-        toast("Locked. Focus Guard me 1 ghante ki request dalo.")
+        logOnce("Blocked: $reason")
+        toast("Locked by Focus Guard.")
     }
 
     /** Settings, installer, aur Realme ke Phone Manager / App management. */
@@ -216,15 +228,21 @@ class GuardService : AccessibilityService() {
      * Home screen pe icon long-press → "Uninstall" ya "App info".
      * Focus Guard aur ye button dono dikhe toh menu band (BACK).
      */
+    private var lastLongPress = ""
+    private var lastLongPressAt = 0L
+
     private fun checkLauncher(texts: List<String>) {
-        if (!texts.has(getString(R.string.app_name))) return
+        // Sirf tab rokna jab long-press Focus Guard ke icon pe hua ho (8 sec ke andar).
+        // Doosre apps ka menu normal khulega.
+        val recent = SystemClock.uptimeMillis() - lastLongPressAt < 8000
+        if (!recent || !lastLongPress.contains(getString(R.string.app_name), ignoreCase = true)) return
         // Long-press menu me kuch bhi ho (Info, Edit, Share, Uninstall...), turant band
         val hit = listOf("Uninstall", "App info", "Remove", "Info", "Edit", "Share", "Open", "Widgets", "Select")
             .firstOrNull { w -> texts.any { it.equals(w, ignoreCase = true) } } ?: return // exact: "ShareChat" jaise app naam match na hon
         val reason = "Home screen menu: \"$hit\""
-        if (Lock.isOpen(this)) { logOnce("TEST/khula, nahi roka: $reason"); return }
+        if (Lock.isOpen(this)) { logOnce("Test/unlocked, not blocked: $reason"); return }
         performGlobalAction(GLOBAL_ACTION_BACK)
-        logOnce("Roka: $reason")
+        logOnce("Blocked: $reason")
     }
 
     private fun protectedHit(texts: List<String>): String? = protectedWords().firstOrNull { texts.has(it) }
@@ -241,13 +259,13 @@ class GuardService : AccessibilityService() {
     private fun handleBrowser(pkg: String) {
         val night = Rules.isBrowserNight()
         if (!night && Rules.browserFreeLeftMs(this) > 0) return
-        val reason = if (night) "Browser raat me ($pkg)" else "Browser gate ($pkg)"
-        if (Lock.isOpen(this)) { logOnce("TEST/khula, nahi roka: $reason"); return }
+        val reason = if (night) "Browser at night ($pkg)" else "Browser gate ($pkg)"
+        if (Lock.isOpen(this)) { logOnce("Test/unlocked, not blocked: $reason"); return }
 
         val now = SystemClock.uptimeMillis()
         if (now - lastGateLaunch < 1500) return
         lastGateLaunch = now
-        logOnce("Roka: $reason")
+        logOnce("Blocked: $reason")
         if (night) performGlobalAction(GLOBAL_ACTION_HOME)
         startActivity(Intent(this, GateActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -282,11 +300,11 @@ class GuardService : AccessibilityService() {
                 when (igCtx) {
                     Ctx.SAVED -> { label = "Saved reel"; act = Act.NONE }
                     Ctx.DM -> if (scrolled && now - clipsEnteredAt > 1500) {
-                        label = "DM reel ke baad scroll"; act = Act.BACK
+                        label = "Scroll after DM reel"; act = Act.BACK
                     } else {
                         label = "DM reel"; act = Act.NONE
                     }
-                    Ctx.OTHER -> { label = "Reel (feed/explore se)"; act = Act.BACK }
+                    Ctx.OTHER -> { label = "Reel (from feed/explore)"; act = Act.BACK }
                 }
             }
             else -> {
@@ -319,9 +337,9 @@ class GuardService : AccessibilityService() {
                     .any { id.contains(it) }
             }.take(12).joinToString(",")
             if (test) {
-                log(this, "IG: $label${if (act != Act.NONE) " [rokta]" else ""} | $hint")
+                log(this, "IG: $label${if (act != Act.NONE) " [would block]" else ""} | $hint")
             } else if (act != Act.NONE) {
-                log(this, "Roka IG: $label | $hint")
+                log(this, "Blocked IG: $label | $hint")
             } else if (igCtx == Ctx.SAVED || label == "Saved reel") {
                 log(this, "IG: $label")
             }
@@ -336,9 +354,9 @@ class GuardService : AccessibilityService() {
             Act.NONE -> {}
         }
         toast(when (label) {
-            "Home feed scroll" -> "Feed band hai. Stories dekho, bas."
-            "DM reel ke baad scroll" -> "DM ki reel dekh li. Aage scroll band."
-            else -> "Ye band hai. Stories, Saved aur DM chalenge."
+            "Home feed scroll" -> "Feed is blocked. Stories only."
+            "Scroll after DM reel" -> "Only the shared reel is allowed."
+            else -> "Blocked. Stories, Saved and DMs are allowed."
         })
     }
 
