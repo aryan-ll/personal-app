@@ -58,6 +58,7 @@ class MainActivity : Activity() {
     private lateinit var removeBtn: TextView
     private lateinit var logText: TextView
     private lateinit var browserText: TextView
+    private lateinit var diagBtn: TextView
 
     /** Ek status line: rang wala dot + text + zarurat ho toh button. */
     private inner class StatusRow(parent: LinearLayout, title: String, fixLabel: String?, onFix: (() -> Unit)?) {
@@ -225,6 +226,16 @@ class MainActivity : Activity() {
             copyLog.visibility = logText.visibility
             logHead.text = if (show) "Guard log ▾" else "Guard log ▸"
         }
+        diagBtn = Ui.text(c, "", 13f, Ui.GOLD, true).apply {
+            setPadding(0, Ui.dp(c, 10), 0, 0)
+            setOnClickListener {
+                Lock.startDiagnose(c)
+                GuardService.log(c, "Jaanch shuru (15 min). Guard rokta rahega, bas zyada likhega.")
+                toast("Jaanch chalu. Ab wo screens kholo, phir log bhejo.")
+                refresh()
+            }
+        }
+        logCard.addView(diagBtn)
         logCard.addView(logHead)
         logCard.addView(copyLog)
         logCard.addView(logText)
@@ -432,6 +443,8 @@ class MainActivity : Activity() {
         val test = Lock.graceLeftMs(this)
         if (test > 0) lockSub.text = "🧪 TEST mode ${Lock.format(test)}: guard sirf log karega.\n" + lockSub.text
 
+        val diag = Lock.diagnoseLeftMs(this)
+        diagBtn.text = if (diag > 0) "🔍 Jaanch chal rahi hai: ${Lock.format(diag)}" else "🔍 Jaanch shuru karo (15 min, Guard rokta rahega)"
         logText.text = GuardService.readLog(this).ifBlank { "(abhi kuch nahi)" }
     }
 

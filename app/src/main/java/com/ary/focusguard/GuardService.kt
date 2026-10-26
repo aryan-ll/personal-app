@@ -40,7 +40,11 @@ class GuardService : AccessibilityService() {
         "cloudflare-dns",
         "Add VPN",
         "Always-on VPN",
-        "Block connections without VPN"
+        "Block connections without VPN",
+        // Device admin ki poori screen (list bhi) band
+        "Device admin app",
+        "Device administrator",
+        "Device admin"
     )
 
     private val vpnDialogPkg = "com.android.vpndialogs"
@@ -156,7 +160,8 @@ class GuardService : AccessibilityService() {
 
     private fun checkWindow(pkg: String, root: AccessibilityNodeInfo) {
         if (pkg == packageName) return
-        val test = Lock.graceLeftMs(this) > 0
+        // Install ke baad ka test mode, ya "Jaanch" button (rokta rehta hai, sirf zyada likhta hai)
+        val test = Lock.graceLeftMs(this) > 0 || Lock.diagnoseOn(this)
         // Test mode me har naya app likho, taki chhoota hua page pakad sakein.
         if (pkg != lastPkgLogged && test) {
             lastPkgLogged = pkg
@@ -213,7 +218,9 @@ class GuardService : AccessibilityService() {
      */
     private fun checkLauncher(texts: List<String>) {
         if (!texts.has(getString(R.string.app_name))) return
-        val hit = listOf("Uninstall", "App info", "Remove").firstOrNull { texts.has(it) } ?: return
+        // Long-press menu me kuch bhi ho (Info, Edit, Share, Uninstall...), turant band
+        val hit = listOf("Uninstall", "App info", "Remove", "Info", "Edit", "Share", "Open", "Widgets", "Select")
+            .firstOrNull { w -> texts.any { it.equals(w, ignoreCase = true) } } ?: return // exact: "ShareChat" jaise app naam match na hon
         val reason = "Home screen menu: \"$hit\""
         if (Lock.isOpen(this)) { logOnce("TEST/khula, nahi roka: $reason"); return }
         performGlobalAction(GLOBAL_ACTION_BACK)

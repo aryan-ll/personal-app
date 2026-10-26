@@ -81,6 +81,25 @@ object Lock {
 
     private fun inGrace(c: Context): Boolean = graceLeftMs(c) > 0
 
+    /**
+     * "Jaanch" mode: 15 min tak Guard log me likhega ki screen pe kya dikha.
+     * Rokna band NAHI hota — ye bypass nahi hai.
+     */
+    fun startDiagnose(c: Context) {
+        prefs(c).edit()
+            .putLong("diag", SystemClock.elapsedRealtime() + TEST_MS)
+            .putInt("diagBoot", bootCount(c))
+            .apply()
+    }
+
+    fun diagnoseLeftMs(c: Context): Long {
+        val p = prefs(c)
+        if (p.getInt("diagBoot", -1) != bootCount(c)) return 0L
+        return (p.getLong("diag", 0L) - SystemClock.elapsedRealtime()).coerceAtLeast(0L)
+    }
+
+    fun diagnoseOn(c: Context) = diagnoseLeftMs(c) > 0
+
     /** Guard ko rukna chahiye ya nahi. */
     fun isOpen(c: Context): Boolean = state(c) is State.Open || inGrace(c)
 
