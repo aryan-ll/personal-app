@@ -110,12 +110,13 @@ class GuardService : AccessibilityService() {
 
         if (event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) return
         val now = SystemClock.uptimeMillis()
-        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED && now - lastCheck < 250) return
+        // Settings/home screen pe koi gap nahi (speed zaroori). Baaki apps me 250 ms ka gap, phone slow na ho.
+        val sensitive = isSystemSettings(evPkg) || evPkg in launchers || evPkg == vpnDialogPkg
+        if (!sensitive && event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED && now - lastCheck < 250) return
         lastCheck = now
 
         val root = rootInActiveWindow ?: return
         val pkg = root.packageName?.toString() ?: return
-        if (pkg != evPkg) return
         checkWindow(pkg, root)
     }
 
@@ -131,11 +132,12 @@ class GuardService : AccessibilityService() {
                     root.packageName?.toString()?.let { pkg -> if (pkg != instagram) checkWindow(pkg, root) }
                 }
             } catch (_: Exception) {}
-            handler.postDelayed(this, 2000)
+            handler.postDelayed(this, 300)
         }
     }
 
     override fun onDestroy() {
+        hideShield.run()
         handler.removeCallbacks(poll)
         super.onDestroy()
     }
@@ -202,9 +204,49 @@ class GuardService : AccessibilityService() {
 
     private fun blockSettings(reason: String) {
         if (Lock.isOpen(this)) { logOnce("Test/unlocked, not blocked: $reason"); return }
+        showShield() // pehle parda, taki ungli button tak na pahunche
         performGlobalAction(GLOBAL_ACTION_HOME)
         logOnce("Blocked: $reason")
-        toast("Locked by Focus Guard.")
+    }
+
+    // ---------- Parda (overlay) ----------
+    private var shield: android.view.View? = null
+
+    /**
+     * Poori screen pe turant ek parda. Ye saare touch kha leta hai,
+     * isliye peeche ka "Uninstall" / "Disable" button dab hi nahi sakta.
+     * Accessibility overlay ke liye alag permission nahi chahiye.
+     */
+    private fun showShield() {
+        handler.removeCallbacks(hideShield)
+        if (shield == null) {
+            val wm = getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
+            val v = android.widget.TextView(this).apply {
+                text = "Locked by Focus Guard"
+                textSize = 20f
+                setTextColor(android.graphics.Color.WHITE)
+                gravity = android.view.Gravity.CENTER
+                setBackgroundColor(android.graphics.Color.parseColor("#F20B0D14"))
+                isClickable = true // touch yahin ruk jaye
+            }
+            val lp = android.view.WindowManager.LayoutParams(
+                android.view.WindowManager.LayoutParams.MATCH_PARENT,
+                android.view.WindowManager.LayoutParams.MATCH_PARENT,
+                android.view.WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                    android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                android.graphics.PixelFormat.TRANSLUCENT
+            )
+            try { wm.addView(v, lp); shield = v } catch (_: Exception) {}
+        }
+        handler.postDelayed(hideShield, 900)
+    }
+
+    private val hideShield = Runnable {
+        shield?.let {
+            try { (getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager).removeView(it) } catch (_: Exception) {}
+        }
+        shield = null
     }
 
     /** Settings, installer, aur Realme ke Phone Manager / App management. */
@@ -241,6 +283,7 @@ class GuardService : AccessibilityService() {
             .firstOrNull { w -> texts.any { it.equals(w, ignoreCase = true) } } ?: return // exact: "ShareChat" jaise app naam match na hon
         val reason = "Home screen menu: \"$hit\""
         if (Lock.isOpen(this)) { logOnce("Test/unlocked, not blocked: $reason"); return }
+        showShield()
         performGlobalAction(GLOBAL_ACTION_BACK)
         logOnce("Blocked: $reason")
     }
