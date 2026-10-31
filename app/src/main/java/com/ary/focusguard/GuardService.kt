@@ -181,14 +181,26 @@ class GuardService : AccessibilityService() {
             lastPkgLogged = pkg
             log(this, "App: $pkg")
         }
-        val needText = pkg in launchers || isSystemSettings(pkg) || pkg == vpnDialogPkg ||
-            ((pkg.startsWith("com.android") || pkg.contains("oplus") || pkg.contains("coloros")) && !isBrowser(pkg))
+        val searchApp = isSearchApp(pkg)
+        val needText = pkg in launchers || isSystemSettings(pkg) || pkg == vpnDialogPkg || searchApp ||
+            ((pkg.startsWith("com.android") || pkg.contains("oplus") || pkg.contains("coloros") || pkg.contains("heytap")) && !isBrowser(pkg))
         val texts = if (needText) screenTexts(root) else emptyList()
 
-        // Test mode: Settings me Guard ko kya dikh raha hai, wo likho.
-        if (test && isSystemSettings(pkg)) {
+        // Test mode: Settings/search me Guard ko kya dikh raha hai, wo likho.
+        if (test && (isSystemSettings(pkg) || searchApp)) {
             val sample = texts.distinct().take(12).joinToString(" | ")
             if (sample != lastTextsLogged) { lastTextsLogged = sample; log(this, "Seen: $sample") }
+        }
+
+        // "Device admin" kisi bhi system app me dikhe (Realme search ka result page bhi) → band
+        if (pkg !in launchers) {
+            listOf("Device admin", "Device administrator").firstOrNull { texts.has(it) }
+                ?.let { blockSettings("$pkg: \"$it\""); return }
+        }
+        // Settings ya phone search me "admin" likha → band (result pe tap ka mauka hi na mile)
+        if (isSystemSettings(pkg) || searchApp) {
+            texts.firstOrNull { it.contains("admin", ignoreCase = true) }
+                ?.let { blockSettings("$pkg: search \"$it\""); return }
         }
 
         if (pkg in launchers) { checkLauncher(texts); return }
@@ -248,6 +260,10 @@ class GuardService : AccessibilityService() {
         }
         shield = null
     }
+
+    /** Phone ka search (Settings search, Realme global search). */
+    private fun isSearchApp(pkg: String): Boolean =
+        pkg.contains("search") && !isBrowser(pkg) && pkg != googleApp
 
     /** Settings, installer, aur Realme ke Phone Manager / App management. */
     private fun isSystemSettings(pkg: String): Boolean =
